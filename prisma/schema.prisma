@@ -1,0 +1,72 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/* Tabla para New Bytes */
+model NewBytesProduct {
+  id                      Int      @id @default(autoincrement())
+  codigo                  String   @map("CODIGO")
+  id_fabricante           String?  @map("ID FABRICANTE")
+  categoria               String?  @map("CATEGORIA")
+  detalle                 String?  @map("DETALLE")
+  imagen                  String?  @map("IMAGEN")
+  iva                     String?  @map("IVA")
+  stock                   String?  @map("STOCK")
+  garantia                String?  @map("GARANTIA")
+  moneda                  String?  @map("MONEDA")
+  precio                  String?  @map("PRECIO")
+  precio_final            String?  @map("PRECIO FINAL")
+  cotizacion_dolar        String?  @map("COTIZACION DOLAR")
+  precio_pesos_sin_iva    String?  @map("PRECIO PESOS SIN IVA")
+  precio_pesos_con_iva    String?  @map("PRECIO PESOS CON IVA")
+  atributos               String?  @map("ATRIBUTOS")
+  precio_usd_con_utilidad String?  @map("PRECIO USD CON UTILIDAD")
+  precio_pesos_con_utilidad String? @map("PRECIO PESOS CON UTILIDAD")
+  categoria_usuario       String?  @map("CATEGORIA_USUARIO")
+  utilidad                String?  @map("UTILIDAD")
+  detalle_usuario         String?  @map("DETALLE_USUARIO")
+  peso                    String?  @map("PESO")
+  alto                    String?  @map("ALTO")
+  ancho                   String?  @map("ANCHO")
+  largo                   String?  @map("LARGO")
+  impuesto_interno        String?  @map("IMPUESTO_INTERNO")
+  marca                   String?  @map("MARCA")
+  raw_data                String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+/* Tabla para Grupo Núcleo */
+model GrupoNucleoProduct {
+  id             Int     @id @default(autoincrement())
+  item_id        Int
+  codigo         String
+  ean            String?
+  partNumber     String?
+  item_desc_0    String?
+  item_desc_1    String?
+  item_desc_2    String?
+  marca          String?
+  categoria      String?
+  subcategoria   String?
+  peso_gr        Int?
+  alto_cm        Int?
+  ancho_cm       Int?
+  largo_cm       Int?
+  volumen_cm3    Int?
+  precioNeto_USD Float?
+  impuestos      String? // JSON con imp_desc, imp_porcentaje
+  stock_mdp      Int?
+  stock_caba     Int?
+  url_imagenes   String? // JSON con lista de urls
+  raw_data       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([codigo])
+}
