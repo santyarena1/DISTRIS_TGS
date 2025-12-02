@@ -1,7 +1,7 @@
 import prisma from './db';
 import { fetchGrupoNucleoProducts } from './grupoNucleoClient';
 
-// Funciones de ayuda para convertir valores
+// Funciones de ayuda para convertir tipos
 function toStringOrNull(value: any): string | null {
   if (value === undefined || value === null) return null;
   const str = String(value).trim();
@@ -19,7 +19,7 @@ function toFloatOrNull(value: any): number | null {
 }
 
 /**
- * Normaliza un producto bruto de Grupo Núcleo al formato de la tabla Prisma.
+ * Convierte un item crudo del API de Grupo Núcleo al formato de tu tabla Prisma.
  */
 function mapGrupoNucleoItem(item: Record<string, any>) {
   return {
@@ -42,14 +42,15 @@ function mapGrupoNucleoItem(item: Record<string, any>) {
     impuestos: item['impuestos'] ? JSON.stringify(item['impuestos']) : null,
     stock_mdp: toIntOrNull(item['stock_mdp']),
     stock_caba: toIntOrNull(item['stock_caba']),
-    url_imagenes: item['url_imagenes'] ? JSON.stringify(item['url_imagenes']) : null,
+    url_imagenes: item['url_imagenes']
+      ? JSON.stringify(item['url_imagenes'])
+      : null,
     raw_data: JSON.stringify(item),
   };
 }
 
 /**
- * Sincroniza todos los productos de Grupo Núcleo con la base de datos.
- * Devuelve un resumen con la cantidad total leída y cuántos se crearon/actualizaron.
+ * Sincroniza el catálogo de Grupo Núcleo con tu base de datos.
  */
 export async function syncGrupoNucleo() {
   const items = await fetchGrupoNucleoProducts();
@@ -58,11 +59,13 @@ export async function syncGrupoNucleo() {
 
   for (const item of items) {
     const normalized = mapGrupoNucleoItem(item);
+    // Evita registros sin código
     if (!normalized.codigo) continue;
 
     const where = { codigo: normalized.codigo };
     const existing = await prisma.grupoNucleoProduct.findUnique({ where });
-    if (existing) updated++; else created++;
+    if (existing) updated++;
+    else created++;
 
     await prisma.grupoNucleoProduct.upsert({
       where,

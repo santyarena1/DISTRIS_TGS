@@ -1,18 +1,29 @@
+// src/server.ts
+import 'dotenv/config';
 import express from 'express';
-import * as dotenv from 'dotenv';
-import router from './routes';
-
-dotenv.config();
+import cors from 'cors';
+import routes from './routes';
 
 const app = express();
+
+// 👉 CORS: por ahora dejamos todo abierto mientras desarrollás
+app.use(
+  cors({
+    origin: '*', // si querés, después lo limitamos a ['http://localhost:60561']
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// Para parsear JSON
 app.use(express.json());
 
-// Mount all API routes under the root path.
-app.use(router);
+// Tus rutas
+app.use(routes);
 
-// Determine port from environment or default to 3000.
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Puerto configurable
+const PORT = Number(process.env.PORT) || 3000;
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
