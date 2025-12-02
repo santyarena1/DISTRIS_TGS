@@ -2,92 +2,61 @@ import prisma from './db';
 import { fetchNewBytesProducts } from './newbytesClient';
 
 export async function syncNewBytes() {
-  const products = await fetchNewBytesProducts();
+  // Ajustá esta línea al método real que ya tenés
+  const productosApi = await fetchNewBytesProducts();
 
   let created = 0;
   let updated = 0;
 
-  for (const item of products) {
-    const codigo = item["CODIGO"]?.toString().trim();
+  for (const item of productosApi) {
+    // Mapeo de campos desde la API de NB a tu modelo Prisma
+    const data = {
+      codigo: item.CODIGO,
+      id_fabricante: item['ID FABRICANTE'] ?? null,
+      categoria: item.CATEGORIA ?? null,
+      detalle: item.DETALLE ?? null,
+      imagen: item.IMAGEN ?? null,
+      iva: item.IVA ?? null,
+      stock: item.STOCK ?? null,
+      garantia: item.GARANTIA ?? null,
+      moneda: item.MONEDA ?? null,
+      precio: item.PRECIO ?? null,
+      precio_final: item['PRECIO FINAL'] ?? null,
+      cotizacion_dolar: item['COTIZACION DOLAR'] ?? null,
+      precio_pesos_sin_iva: item['PRECIO PESOS SIN IVA'] ?? null,
+      precio_pesos_con_iva: item['PRECIO PESOS CON IVA'] ?? null,
+      atributos: item.ATRIBUTOS ?? null,
+      // 👇 nombres CORRECTOS segun el error que te tiró Prisma
+      precio_usd_con_utilidad: item['PRECIO USD CON UTILIDAD'] ?? null,
+      precio_pesos_con_utilidad: item['PRECIO PESOS CON UTILIDAD'] ?? null,
+      categoria_usuario: item.CATEGORIA_USUARIO ?? null,
+      utilidad: item.UTILIDAD ?? null,
+      detalle_usuario: item.DETALLE_USUARIO ?? null,
+      peso: item.PESO ?? null,
+      alto: item.ALTO ?? null,
+      ancho: item.ANCHO ?? null,
+      largo: item.LARGO ?? null,
+      impuesto_interno: item.IMPUESTO_INTERNO ?? null,
+      marca: item.MARCA ?? null,
+      raw_data: JSON.stringify(item),
+    };
 
-    if (!codigo) {
-      console.warn("Producto sin CODIGO, se salta:", item);
-      continue;
-    }
-
+    // Buscamos si ya existe por código (ajustá si tenés otra unique)
     const existing = await prisma.newBytesProduct.findFirst({
-      where: { codigo }
+      where: { codigo: data.codigo },
     });
 
-    if (existing) updated++;
-    else created++;
-
-    await prisma.newBytesProduct.upsert({
-      where: { id: existing?.id ?? 0 },
-      update: {
-        codigo: item["CODIGO"],
-        id_fabricante: item["ID FABRICANTE"],
-        categoria: item["CATEGORIA"],
-        detalle: item["DETALLE"],
-        imagen: item["IMAGEN"],
-        iva: item["IVA"],
-        stock: item["STOCK"],
-        garantia: item["GARANTIA"],
-        moneda: item["MONEDA"],
-        precio: item["PRECIO"],
-        precio_final: item["PRECIO FINAL"],
-        cotizacion_dolar: item["COTIZACION DOLAR"],
-        precio_pesos_sin_iva: item["PRECIO PESOS SIN IVA"],
-        precio_pesos_con_iva: item["PRECIO PESOS CON IVA"],
-        atributos: item["ATRIBUTOS"],
-        precio_usd_utilidad: item["PRECIO USD CON UTILIDAD"],
-        precio_pesos_util: item["PRECIO PESOS CON UTILIDAD"],
-        categoria_usuario: item["CATEGORIA_USUARIO"],
-        utilidad: item["UTILIDAD"],
-        detalle_usuario: item["DETALLE_USUARIO"],
-        peso: item["PESO"],
-        alto: item["ALTO"],
-        ancho: item["ANCHO"],
-        largo: item["LARGO"],
-        impuesto_interno: item["IMPUESTO_INTERNO"],
-        marca: item["MARCA"],
-        raw_data: JSON.stringify(item)
-      },
-      create: {
-        codigo: item["CODIGO"],
-        id_fabricante: item["ID FABRICANTE"],
-        categoria: item["CATEGORIA"],
-        detalle: item["DETALLE"],
-        imagen: item["IMAGEN"],
-        iva: item["IVA"],
-        stock: item["STOCK"],
-        garantia: item["GARANTIA"],
-        moneda: item["MONEDA"],
-        precio: item["PRECIO"],
-        precio_final: item["PRECIO FINAL"],
-        cotizacion_dolar: item["COTIZACION DOLAR"],
-        precio_pesos_sin_iva: item["PRECIO PESOS SIN IVA"],
-        precio_pesos_con_iva: item["PRECIO PESOS CON IVA"],
-        atributos: item["ATRIBUTOS"],
-        precio_usd_utilidad: item["PRECIO USD CON UTILIDAD"],
-        precio_pesos_util: item["PRECIO PESOS CON UTILIDAD"],
-        categoria_usuario: item["CATEGORIA_USUARIO"],
-        utilidad: item["UTILIDAD"],
-        detalle_usuario: item["DETALLE_USUARIO"],
-        peso: item["PESO"],
-        alto: item["ALTO"],
-        ancho: item["ANCHO"],
-        largo: item["LARGO"],
-        impuesto_interno: item["IMPUESTO_INTERNO"],
-        marca: item["MARCA"],
-        raw_data: JSON.stringify(item)
-      }
-    });
+    if (existing) {
+      await prisma.newBytesProduct.update({
+        where: { id: existing.id },
+        data,
+      });
+      updated++;
+    } else {
+      await prisma.newBytesProduct.create({ data });
+      created++;
+    }
   }
 
-  return {
-    totalFetched: products.length,
-    created,
-    updated
-  };
+  return { created, updated };
 }
