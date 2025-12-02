@@ -1,7 +1,7 @@
-// src/userController.ts
+// src/controllers/userController.ts
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import prisma from './db';
+import prisma from '../db';
 
 const DEFAULT_SALT_ROUNDS = 10;
 

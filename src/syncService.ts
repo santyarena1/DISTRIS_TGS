@@ -1,62 +1,84 @@
+// src/syncService.ts
 import prisma from './db';
 import { fetchNewBytesProducts } from './newbytesClient';
 
-export async function syncNewBytes() {
-  // Ajustá esta línea al método real que ya tenés
-  const productosApi = await fetchNewBytesProducts();
+interface NewBytesRawItem {
+  [key: string]: any;
+}
+
+/**
+ * Sincroniza el catálogo de NewBytes con la BD local.
+ * Usa:
+ *  - findFirst({ where: { codigo } })
+ *  - si existe -> update por id
+ *  - si no existe -> create
+ */
+export async function syncNewBytesCatalog() {
+  const rawList: NewBytesRawItem[] = await fetchNewBytesProducts();
 
   let created = 0;
   let updated = 0;
 
-  for (const item of productosApi) {
-    // Mapeo de campos desde la API de NB a tu modelo Prisma
+  for (const raw of rawList) {
+    const codigo = String(raw['CODIGO'] ?? '').trim();
+    if (!codigo) continue;
+
     const data = {
-      codigo: item.CODIGO,
-      id_fabricante: item['ID FABRICANTE'] ?? null,
-      categoria: item.CATEGORIA ?? null,
-      detalle: item.DETALLE ?? null,
-      imagen: item.IMAGEN ?? null,
-      iva: item.IVA ?? null,
-      stock: item.STOCK ?? null,
-      garantia: item.GARANTIA ?? null,
-      moneda: item.MONEDA ?? null,
-      precio: item.PRECIO ?? null,
-      precio_final: item['PRECIO FINAL'] ?? null,
-      cotizacion_dolar: item['COTIZACION DOLAR'] ?? null,
-      precio_pesos_sin_iva: item['PRECIO PESOS SIN IVA'] ?? null,
-      precio_pesos_con_iva: item['PRECIO PESOS CON IVA'] ?? null,
-      atributos: item.ATRIBUTOS ?? null,
-      // 👇 nombres CORRECTOS segun el error que te tiró Prisma
-      precio_usd_con_utilidad: item['PRECIO USD CON UTILIDAD'] ?? null,
-      precio_pesos_con_utilidad: item['PRECIO PESOS CON UTILIDAD'] ?? null,
-      categoria_usuario: item.CATEGORIA_USUARIO ?? null,
-      utilidad: item.UTILIDAD ?? null,
-      detalle_usuario: item.DETALLE_USUARIO ?? null,
-      peso: item.PESO ?? null,
-      alto: item.ALTO ?? null,
-      ancho: item.ANCHO ?? null,
-      largo: item.LARGO ?? null,
-      impuesto_interno: item.IMPUESTO_INTERNO ?? null,
-      marca: item.MARCA ?? null,
-      raw_data: JSON.stringify(item),
+      codigo,
+      id_fabricante: raw['ID FABRICANTE'] ?? null,
+      categoria: raw['CATEGORIA'] ?? null,
+      detalle: raw['DETALLE'] ?? null,
+      imagen: raw['IMAGEN'] ?? null,
+      iva: raw['IVA'] ?? null,
+      stock: raw['STOCK'] ?? null,
+      garantia: raw['GARANTIA'] ?? null,
+      moneda: raw['MONEDA'] ?? null,
+      precio: raw['PRECIO'] ?? null,
+      precio_final: raw['PRECIO FINAL'] ?? null,
+      cotizacion_dolar: raw['COTIZACION DOLAR'] ?? null,
+      precio_pesos_sin_iva: raw['PRECIO PESOS SIN IVA'] ?? null,
+      precio_pesos_con_iva: raw['PRECIO PESOS CON IVA'] ?? null,
+      atributos: raw['ATRIBUTOS'] ?? null,
+      // nombres corregidos según tu schema
+      precio_usd_con_utilidad: raw['PRECIO USD CON UTILIDAD'] ?? null,
+      precio_pesos_con_utilidad: raw['PRECIO PESOS CON UTILIDAD'] ?? null,
+      categoria_usuario: raw['CATEGORIA_USUARIO'] ?? null,
+      utilidad: raw['UTILIDAD'] ?? null,
+      detalle_usuario: raw['DETALLE_USUARIO'] ?? null,
+      peso: raw['PESO'] ?? null,
+      alto: raw['ALTO'] ?? null,
+      ancho: raw['ANCHO'] ?? null,
+      largo: raw['LARGO'] ?? null,
+      impuesto_interno: raw['IMPUESTO_INTERNO'] ?? null,
+      marca: raw['MARCA'] ?? null,
+      raw_data: JSON.stringify(raw),
     };
 
-    // Buscamos si ya existe por código (ajustá si tenés otra unique)
+    // 🔹 Buscamos por código (NO es unique, así que usamos findFirst)
     const existing = await prisma.newBytesProduct.findFirst({
-      where: { codigo: data.codigo },
+      where: { codigo },
+      select: { id: true },
     });
 
     if (existing) {
+      // 🔹 Si existe, actualizamos por id (que sí es unique)
       await prisma.newBytesProduct.update({
         where: { id: existing.id },
         data,
       });
       updated++;
     } else {
-      await prisma.newBytesProduct.create({ data });
+      // 🔹 Si no existe, creamos registro nuevo
+      await prisma.newBytesProduct.create({
+        data,
+      });
       created++;
     }
   }
 
-  return { created, updated };
+  return {
+    total: created + updated,
+    created,
+    updated,
+  };
 }
