@@ -1,4 +1,4 @@
-// src/authMiddleware.ts
+// src/middlewares/authMiddleware.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
@@ -34,7 +34,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   }
 }
 
-// Solo permite admins
+// Solo admins
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user;
   if (!user || user.role !== 'admin') {
