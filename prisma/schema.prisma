@@ -41,35 +41,31 @@ model NewBytesProduct {
   updatedAt                 DateTime @updatedAt
 }
 
-// Tabla para Grupo Núcleo 
 model GrupoNucleoProduct {
-  id             Int      @id @default(autoincrement())
-  item_id        Int
-  codigo         String
-  ean            String?
-  partNumber     String?
-  item_desc_0    String?
-  item_desc_1    String?
-  item_desc_2    String?
-  marca          String?
-  categoria      String?
-  subcategoria   String?
-  peso_gr        Int?
-  alto_cm        Int?
-  ancho_cm       Int?
-  largo_cm       Int?
-  volumen_cm3    Int?
-  precioNeto_USD Float?
-  impuestos      String? // JSON con imp_desc, imp_porcentaje
-  stock_mdp      Int?
-  stock_caba     Int?
-  url_imagenes   String? // JSON con lista de urls
-  raw_data       String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id          Int     @id @default(autoincrement())
 
-  @@unique([codigo])
+  // ✅ ESTE ES EL ID REAL DE GRUPO NUCLEO
+  item_id     Int     @unique
+
+  codigo      String
+
+  item_desc_0 String?
+  item_desc_1 String?
+  item_desc_2 String?
+
+  marca       String?
+  categoria   String?
+
+  stock       String?
+  precio      String?
+  moneda      String?
+
+  raw_data    String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
+
 
 model User {
   id        Int      @id @default(autoincrement())
