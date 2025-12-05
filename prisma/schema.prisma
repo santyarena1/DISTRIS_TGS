@@ -75,3 +75,54 @@ model User {
   role      String   @default("admin")
   createdAt DateTime @default(now())
 }
+
+model TgsProduct {
+  id              Int      @id @default(autoincrement())
+  externalId      Int?     // id numérico del feed (ej 6780)
+  name            String   // nombre del producto
+  manufacturerSku String?  // código de fabricante (ej 910-007530)
+  imageUrl        String?  // url de imagen
+  category        String?  // categoría (Mouse, Gabinetes, etc.)
+  status          String?  // 'in_stock' | 'out_of_stock'
+  price           Decimal? // precio en ARS (Prisma acepta number)
+  currency        String?  @default("ARS")
+  internalSku     String?  @unique // IC_910-007530, NB_..., etc.
+  stock           Int?     @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+
+model ElitProduct {
+  id                     Int      @id @default(autoincrement())
+  elitId                 Int      @unique        // id (código único ELIT)
+  codigoAlfa             String?                  // codigo_alfa
+  codigoProducto         String?                  // codigo_producto / SKU
+  nombre                 String                   // nombre
+  categoria              String?                  // categoria
+  subCategoria           String?                  // sub_categoria
+  marca                  String?                  // marca
+  precio                 Decimal?                 // precio (costo sin impuestos)
+  impuestoInterno        Decimal?                 // impuesto_interno
+  iva                    Decimal?                 // iva
+  moneda                 Int?                     // moneda (1: ARS, 2: USD)
+  markup                 Decimal?                 // markup
+  cotizacion             Decimal?                 // cotizacion
+  pvpUsd                 Decimal?                 // pvp_usd
+  pvpArs                 Decimal?                 // pvp_ars
+  peso                   Float?                   // peso
+  ean                    String?                  // ean
+  nivelStock             String?                  // nivel_stock (bajo/alto)
+  stockTotal             Int?                     // stock_total
+  stockDepositoCliente   Int?                     // stock_deposito_cliente
+  stockDepositoCd        Int?                     // stock_deposito_cd
+  garantia               String?                  // garantia
+  link                   String?                  // link
+  gamer                  Boolean?                 // gamer
+  creado                 DateTime?                // creado
+  actualizado            DateTime?                // actualizado
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
