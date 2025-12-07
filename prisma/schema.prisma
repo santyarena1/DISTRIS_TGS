@@ -61,6 +61,7 @@ model GrupoNucleoProduct {
   moneda      String?
 
   raw_data    String
+  imageUrl    String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -122,6 +123,9 @@ model ElitProduct {
   gamer                  Boolean?                 // gamer
   creado                 DateTime?                // creado
   actualizado            DateTime?                // actualizado
+  imagenesRaw            String?   // JSON/string con el array de "imagenes"
+  miniaturasRaw          String?   // JSON/string con el array de "miniaturas"
+  imageUrl               String?   // primera imagen usable
 
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

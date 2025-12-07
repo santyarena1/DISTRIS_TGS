@@ -35,6 +35,43 @@ function toDate(val: any): Date | null {
 }
 
 /**
+ * Devuelve:
+ *  - firstImage: primer URL útil
+ *  - imagenesRaw / miniaturasRaw: string JSON para guardar todo
+ */
+function extractElitImages(p: any) {
+  let imagenesArr: string[] = [];
+  let miniaturasArr: string[] = [];
+
+  if (Array.isArray(p.imagenes)) {
+    imagenesArr = p.imagenes.filter((x: any) => typeof x === "string" && x.trim() !== "");
+  } else if (typeof p.imagenes === "string" && p.imagenes.trim() !== "") {
+    // por si en algún momento viene como string separado por ; o ,
+    imagenesArr = p.imagenes
+      .split(/[;,|]/)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+  }
+
+  if (Array.isArray(p.miniaturas)) {
+    miniaturasArr = p.miniaturas.filter((x: any) => typeof x === "string" && x.trim() !== "");
+  } else if (typeof p.miniaturas === "string" && p.miniaturas.trim() !== "") {
+    miniaturasArr = p.miniaturas
+      .split(/[;,|]/)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+  }
+
+  const firstImage = imagenesArr[0] || miniaturasArr[0] || null;
+
+  return {
+    firstImage,
+    imagenesRaw: imagenesArr.length ? JSON.stringify(imagenesArr) : null,
+    miniaturasRaw: miniaturasArr.length ? JSON.stringify(miniaturasArr) : null,
+  };
+}
+
+/**
  * Descarga todos los productos de ELIT paginando:
  * - limit máximo 100
  * - offset ES 1-BASED → 1, 101, 201, ...
@@ -115,6 +152,8 @@ async function syncElitWithDb() {
       const elitId = Number(p.id);
       if (!elitId) continue;
 
+      const imgInfo = extractElitImages(p);
+
       const data = {
         elitId,
         codigoAlfa: p.codigo_alfa ?? null,
@@ -148,6 +187,11 @@ async function syncElitWithDb() {
         gamer: toBool(p.gamer) ?? undefined,
         creado: toDate(p.creado) ?? undefined,
         actualizado: toDate(p.actualizado) ?? undefined,
+
+        // 🔽 imágenes
+        imagenesRaw: imgInfo.imagenesRaw,
+        miniaturasRaw: imgInfo.miniaturasRaw,
+        imageUrl: imgInfo.firstImage,
       };
 
       const exists = await prisma.elitProduct.findUnique({
@@ -218,7 +262,7 @@ router.get(
       let where: any = undefined;
 
       if (q) {
-        // 👇 Sin "mode: 'insensitive'" para evitar errores según el provider
+        // sin "mode: 'insensitive'" porque tu provider no lo soporta
         where = {
           OR: [
             { nombre: { contains: q } },

@@ -9,6 +9,7 @@ import elitRoutes from "./routes/elit.routes";
 
 const app = express();
 
+
 app.use(
   cors({
     origin: '*',
@@ -18,6 +19,7 @@ app.use(
 );
 
 app.use(express.json());
+
 
 // ✅ RUTAS NUEVAS MODULARES
 app.use(routes);
