@@ -5,6 +5,7 @@ import syncRoutes from './syncRoutes';
 import newBytesRoutes from './newBytesRoutes';
 import grupoNucleoRoutes from './grupoNucleoRoutes';
 import searchRoutes from './searchRoutes';
+import configRoutes from './configRoutes'; // <--- Importar
 
 const router = Router();
 
@@ -23,5 +24,7 @@ router.use('/gruponucleo-products', grupoNucleoRoutes);
 
 // Búsqueda global de productos
 router.use('/search', searchRoutes);
+
+router.use('/config', configRoutes); // <--- Agregar esta línea
 
 export default router;

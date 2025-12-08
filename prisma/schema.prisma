@@ -130,3 +130,18 @@ model ElitProduct {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
+
+
+// Configuración de Distribuidores (Credenciales)
+model DistributorConfig {
+  id          Int      @id @default(autoincrement())
+  distributor String   @unique // Ej: 'newbytes', 'gruponucleo', 'elit'
+  name        String   // Nombre visible
+  active      Boolean  @default(true)
+  
+  // Guardaremos las credenciales como un string JSON
+  // Ej: '{"user": "pepe", "pass": "1234"}' o '{"token": "xyz"}'
+  credentials String   
+  
+  updatedAt   DateTime @updatedAt
+}

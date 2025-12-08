@@ -11,7 +11,7 @@ export async function listGrupoNucleoProductsHandler(
       typeof req.query.q === "string" ? req.query.q.trim() : "";
     const limitParam = Number(req.query.limit);
     const take =
-      limitParam > 0 && limitParam <= 200 ? limitParam : 50;
+      limitParam > 0 && limitParam <= 200 ? limitParam : 50000;
 
     let where: any = undefined;
 

@@ -111,7 +111,7 @@ async function syncElitWithDb() {
     // Log sólo de la primera página para ver formato
     if (offset === 1) {
       console.log("========== EJEMPLO RESPUESTA ELIT (página 1) ==========");
-      console.log(JSON.stringify(json).slice(0, 1000));
+      console.log(JSON.stringify(json).slice(0, 10000));
       console.log("=====================================================");
     }
 

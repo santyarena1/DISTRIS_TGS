@@ -4,7 +4,7 @@ import prisma from '../db';
 export async function listNewBytesProductsHandler(req: Request, res: Response) {
   try {
     const { q, limit } = req.query;
-    const take = Math.min(Number(limit) || 50, 200);
+    const take = Math.min(Number(limit) || 0, 20000);
 
     let where: any = {};
 
