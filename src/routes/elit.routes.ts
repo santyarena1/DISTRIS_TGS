@@ -7,13 +7,7 @@ const prisma = new PrismaClient();
 
 const ELIT_URL = "https://clientes.elit.com.ar/v1/api/productos";
 
-// ⚠️ Idealmente esto iría en variables de entorno (.env)
-const ELIT_AUTH_BODY = {
-  user_id: "28736",
-  token: "plv92s1l2j",
-};
-
-// Helpers
+// Helpers originales
 function toNumber(val: any): number | null {
   if (val === null || val === undefined || val === "") return null;
   const n = Number(val);
@@ -34,11 +28,6 @@ function toDate(val: any): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-/**
- * Devuelve:
- *  - firstImage: primer URL útil
- *  - imagenesRaw / miniaturasRaw: string JSON para guardar todo
- */
 function extractElitImages(p: any) {
   let imagenesArr: string[] = [];
   let miniaturasArr: string[] = [];
@@ -46,20 +35,13 @@ function extractElitImages(p: any) {
   if (Array.isArray(p.imagenes)) {
     imagenesArr = p.imagenes.filter((x: any) => typeof x === "string" && x.trim() !== "");
   } else if (typeof p.imagenes === "string" && p.imagenes.trim() !== "") {
-    // por si en algún momento viene como string separado por ; o ,
-    imagenesArr = p.imagenes
-      .split(/[;,|]/)
-      .map((s: string) => s.trim())
-      .filter(Boolean);
+    imagenesArr = p.imagenes.split(/[;,|]/).map((s: string) => s.trim()).filter(Boolean);
   }
 
   if (Array.isArray(p.miniaturas)) {
     miniaturasArr = p.miniaturas.filter((x: any) => typeof x === "string" && x.trim() !== "");
   } else if (typeof p.miniaturas === "string" && p.miniaturas.trim() !== "") {
-    miniaturasArr = p.miniaturas
-      .split(/[;,|]/)
-      .map((s: string) => s.trim())
-      .filter(Boolean);
+    miniaturasArr = p.miniaturas.split(/[;,|]/).map((s: string) => s.trim()).filter(Boolean);
   }
 
   const firstImage = imagenesArr[0] || miniaturasArr[0] || null;
@@ -72,15 +54,32 @@ function extractElitImages(p: any) {
 }
 
 /**
- * Descarga todos los productos de ELIT paginando:
- * - limit máximo 100
- * - offset ES 1-BASED → 1, 101, 201, ...
+ * Descarga todos los productos de ELIT paginando.
+ * AHORA LEE CREDENCIALES DE LA BD.
  */
 async function syncElitWithDb() {
+  // 1. OBTENER CREDENCIALES DE LA BD
+  const config = await prisma.distributorConfig.findUnique({
+    where: { distributor: 'elit' }
+  });
+
+  // Fallback por si no corriste el seed, pero idealmente debe venir de BD
+  let authBody = { user_id: "28736", token: "plv92s1l2j" };
+
+  if (config && config.active && config.credentials) {
+    const creds = JSON.parse(config.credentials);
+    if (creds.user_id && creds.token) {
+      authBody = { user_id: creds.user_id, token: creds.token };
+      console.log('✅ Usando credenciales de Elit desde base de datos.');
+    }
+  } else {
+    console.warn('⚠️ Usando credenciales hardcodeadas de Elit (fallback).');
+  }
+
   const limit = 100;
   const maxTotal = 5000;
 
-  let offset = 1; // ELIT no acepta 0
+  let offset = 1; 
   let totalParsed = 0;
   let created = 0;
   let updated = 0;
@@ -94,7 +93,7 @@ async function syncElitWithDb() {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(ELIT_AUTH_BODY),
+      body: JSON.stringify(authBody), // Usamos las credenciales dinámicas
     });
 
     if (!res.ok) {
@@ -108,20 +107,17 @@ async function syncElitWithDb() {
       return null;
     });
 
-    // Log sólo de la primera página para ver formato
     if (offset === 1) {
       console.log("========== EJEMPLO RESPUESTA ELIT (página 1) ==========");
-      console.log(JSON.stringify(json).slice(0, 10000));
+      console.log(JSON.stringify(json).slice(0, 500));
       console.log("=====================================================");
     }
 
-    // Detectar array de productos
     let productos: any[] = [];
 
     if (Array.isArray(json)) {
       productos = json;
     } else if (json && Array.isArray(json.resultado)) {
-      // según el ejemplo que viste
       productos = json.resultado;
     } else if (json && Array.isArray(json.data)) {
       productos = json.data;
@@ -129,24 +125,9 @@ async function syncElitWithDb() {
       productos = json.productos;
     } else if (json && json.data && Array.isArray(json.data.productos)) {
       productos = json.data.productos;
-    } else if (json && typeof json === "object") {
-      // último intento: primera propiedad que sea array
-      for (const key of Object.keys(json)) {
-        if (Array.isArray(json[key])) {
-          productos = json[key];
-          break;
-        }
-      }
     }
 
-    if (!productos || productos.length === 0) {
-      if (offset === 1) {
-        console.warn(
-          "No se encontró ningún array de productos en la respuesta de ELIT."
-        );
-      }
-      break;
-    }
+    if (!productos || productos.length === 0) break;
 
     for (const p of productos) {
       const elitId = Number(p.id);
@@ -170,25 +151,17 @@ async function syncElitWithDb() {
         cotizacion: toNumber(p.cotizacion) ?? undefined,
         pvpUsd: toNumber(p.pvp_usd) ?? undefined,
         pvpArs: toNumber(p.pvp_ars) ?? undefined,
-        peso:
-          p.peso !== undefined && p.peso !== null
-            ? Number(p.peso)
-            : undefined,
-        // ean como string o null
-        ean:
-          p.ean !== undefined && p.ean !== null ? String(p.ean) : null,
+        peso: toNumber(p.peso) ?? undefined,
+        ean: p.ean !== undefined && p.ean !== null ? String(p.ean) : null,
         nivelStock: p.nivel_stock ?? null,
         stockTotal: toNumber(p.stock_total) ?? undefined,
-        stockDepositoCliente:
-          toNumber(p.stock_deposito_cliente) ?? undefined,
+        stockDepositoCliente: toNumber(p.stock_deposito_cliente) ?? undefined,
         stockDepositoCd: toNumber(p.stock_deposito_cd) ?? undefined,
         garantia: p.garantia ?? null,
         link: p.link ?? null,
         gamer: toBool(p.gamer) ?? undefined,
         creado: toDate(p.creado) ?? undefined,
         actualizado: toDate(p.actualizado) ?? undefined,
-
-        // 🔽 imágenes
         imagenesRaw: imgInfo.imagenesRaw,
         miniaturasRaw: imgInfo.miniaturasRaw,
         imageUrl: imgInfo.firstImage,
@@ -200,10 +173,7 @@ async function syncElitWithDb() {
       });
 
       if (exists) {
-        await prisma.elitProduct.update({
-          where: { elitId },
-          data,
-        });
+        await prisma.elitProduct.update({ where: { elitId }, data });
         updated++;
       } else {
         await prisma.elitProduct.create({ data });
@@ -214,11 +184,8 @@ async function syncElitWithDb() {
       if (totalParsed >= maxTotal) break;
     }
 
-    if (productos.length < limit || totalParsed >= maxTotal) {
-      break;
-    }
-
-    offset += limit; // 1, 101, 201, ...
+    if (productos.length < limit || totalParsed >= maxTotal) break;
+    offset += limit;
   }
 
   return { totalParsed, created, updated };
@@ -226,70 +193,41 @@ async function syncElitWithDb() {
 
 // =============== RUTAS ===============
 
-// POST /sync/elit
-router.post(
-  "/sync/elit",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const result = await syncElitWithDb();
-      return res.json({
-        ok: true,
-        message: "Sincronización ELIT completada",
-        ...result,
-      });
-    } catch (error: any) {
-      console.error("ERROR ELIT:", error);
-      return res.status(500).json({
-        ok: false,
-        error: "Error sincronizando ELIT",
-        details: error?.message ?? "unknown error",
-      });
-    }
+router.post("/sync/elit", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const result = await syncElitWithDb();
+    return res.json({ ok: true, message: "Sincronización ELIT completada", ...result });
+  } catch (error: any) {
+    console.error("ERROR ELIT:", error);
+    return res.status(500).json({ ok: false, error: "Error sincronizando ELIT", details: error?.message });
   }
-);
+});
 
-// GET /elit-products?limit=50&q=texto
-router.get(
-  "/elit-products",
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    try {
-      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-      const limitQuery = Number(req.query.limit);
-      const take = limitQuery > 0 ? limitQuery : 50;
+router.get("/elit-products", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const limitQuery = Number(req.query.limit);
+    const take = limitQuery > 0 ? limitQuery : 50;
 
-      let where: any = undefined;
-
-      if (q) {
-        // sin "mode: 'insensitive'" porque tu provider no lo soporta
-        where = {
-          OR: [
-            { nombre: { contains: q } },
-            { marca: { contains: q } },
-            { categoria: { contains: q } },
-            { codigoProducto: { contains: q } },
-            { codigoAlfa: { contains: q } },
-          ],
-        };
-      }
-
-      const productos = await prisma.elitProduct.findMany({
-        where,
-        take,
-        orderBy: { nombre: "asc" },
-      });
-
-      return res.json(productos);
-    } catch (error: any) {
-      console.error("ERROR GET /elit-products:", error);
-      return res.status(500).json({
-        ok: false,
-        error: "Error obteniendo productos ELIT",
-        details: error?.message ?? "unknown error",
-      });
+    let where: any = undefined;
+    if (q) {
+      where = {
+        OR: [
+          { nombre: { contains: q } },
+          { marca: { contains: q } },
+          { categoria: { contains: q } },
+          { codigoProducto: { contains: q } },
+          { codigoAlfa: { contains: q } },
+        ],
+      };
     }
+
+    const productos = await prisma.elitProduct.findMany({ where, take, orderBy: { nombre: "asc" } });
+    return res.json(productos);
+  } catch (error: any) {
+    console.error("ERROR GET /elit-products:", error);
+    return res.status(500).json({ ok: false, error: "Error obteniendo productos ELIT", details: error?.message });
   }
-);
+});
 
 export default router;

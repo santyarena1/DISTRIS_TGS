@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   syncNewBytesHandler,
   syncGrupoNucleoHandler,
+  syncTgsHandler
 } from '../controllers/syncController';
 import {
   authMiddleware,
@@ -19,5 +20,7 @@ router.post('/newbytes', syncNewBytesHandler);
 
 // POST /sync/gruponucleo
 router.post('/gruponucleo', syncGrupoNucleoHandler);
+
+router.post('/tgs', syncTgsHandler);
 
 export default router;

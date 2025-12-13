@@ -1,13 +1,13 @@
 // src/grupoNucleoSyncService.ts
 import prisma from './db';
-import { fetchGrupoNucleoProducts } from './grupoNucleoClient';
+import { fetchProducts } from './grupoNucleoClient';
 
 interface GrupoNucleoRawItem {
   [key: string]: any;
 }
 
 export async function syncGrupoNucleoCatalog() {
-  const rawResponse: any = await fetchGrupoNucleoProducts();
+  const rawResponse: any = await fetchProducts();
 
   let rawList: GrupoNucleoRawItem[] = [];
 

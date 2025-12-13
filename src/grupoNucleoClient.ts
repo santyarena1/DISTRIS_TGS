@@ -1,90 +1,77 @@
 import axios from 'axios';
-import * as dotenv from 'dotenv';
+import prisma from './db';
 
-dotenv.config();
-
-/**
- * Realiza el login en la API de Grupo Núcleo y devuelve el token de acceso.
- * El `id` se envía si está definido en el entorno. Si es numérico se envía como número;
- * en cualquier otro caso se envía como cadena.
- */
-export async function loginGrupoNucleo(): Promise<string> {
-  const rawId = process.env.NUCLEO_ID;
-  const username = process.env.NUCLEO_USERNAME?.trim();
-  const password = process.env.NUCLEO_PASSWORD?.trim();
-
-  if (!username || !password) {
-    throw new Error('Debes definir NUCLEO_USERNAME y NUCLEO_PASSWORD en el entorno');
-  }
-
-  const body: any = { username, password };
-
-  if (rawId) {
-    const idNum = parseInt(rawId, 10);
-    // Si la conversión no es numérica, envía el id como string.
-    body.id = isNaN(idNum) ? rawId : idNum;
-  }
-
+export async function loginAndScrapeGrupoNucleo() {
+  console.log('🔄 [GrupoNucleo] Iniciando...');
+  
   try {
-    const response = await axios.post(
-      'https://api.gruponucleosa.com/Authentication/Login',
-      body,
-      {
-        headers: {
-          accept: '*/*',
-          'Content-Type': 'application/json',
-        },
-        timeout: 30_000,
-      },
-    );
+    const config = await prisma.distributorConfig.findUnique({ where: { distributor: 'gruponucleo' } });
+    if (!config || !config.active) throw new Error('Inactivo o no configurado.');
 
-    // La API puede devolver el token como string plano o como { access_token }
-    if (typeof response.data === 'string') {
-      return response.data.trim();
-    }
-    if (response.data?.access_token) {
-      return String(response.data.access_token);
-    }
+    const creds = JSON.parse(config.credentials);
+    if (!creds.user || !creds.password) throw new Error('Faltan credenciales.');
 
-    throw new Error('Formato de respuesta de login inesperado');
-  } catch (error: any) {
-    const status = error?.response?.status;
-    if (status === 401 || status === 403) {
-      // Errores de credenciales
-      throw new Error('Credenciales inválidas para Grupo Núcleo (HTTP ' + status + ')');
-    }
-    throw new Error(
-      `Fallo al hacer login de Grupo Núcleo${
-        status ? `: HTTP ${status}` : ''
-      }`,
-    );
-  }
-}
+    // 1. LOGIN
+    console.log(`🔐 [GrupoNucleo] Login user: ${creds.user}`);
+    const authRes = await axios.post('https://api.gruponucleosa.com/Authentication/Login', {
+      username: creds.user,
+      password: creds.password
+    }).catch(e => { throw new Error(`Fallo Login: ${e.response?.status} ${e.response?.statusText}`); });
 
-/**
- * Obtiene el catálogo completo de productos con precio y stock.
- */
-export async function fetchGrupoNucleoProducts(): Promise<Record<string, any>[]> {
-  const token = await loginGrupoNucleo();
-  try {
-    const response = await axios.get('https://api.gruponucleosa.com/API_V1/GetCatalog', {
-      headers: {
-        accept: '*/*',
-        Authorization: `Bearer ${token}`,
-      },
-      timeout: 60_000,
+    let token = typeof authRes.data === 'string' ? authRes.data : authRes.data?.access_token;
+    if (!token) throw new Error('No se recibió token.');
+
+    // 2. DESCARGA
+    console.log('📥 [GrupoNucleo] Descargando productos...');
+    const prodRes = await axios.get('https://api.gruponucleosa.com/API_V1/GetCatalog', {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 120000 // Aumentamos timeout a 2 min
     });
 
-    if (!Array.isArray(response.data)) {
-      throw new Error('La respuesta del catálogo no es una lista');
+    const productos = Array.isArray(prodRes.data) ? prodRes.data : [];
+    console.log(`📦 [GrupoNucleo] Recibidos: ${productos.length}`);
+
+    // 3. GUARDADO
+    let created = 0, updated = 0;
+    
+    for (const p of productos) {
+      const codigo = String(p.Id || p.Sku || p.Codigo || '').trim();
+      if(!codigo) continue;
+
+      const data = {
+        codigo,
+        item_desc_0: p.Description || p.Descripcion || 'Sin Nombre',
+        marca: p.Brand || p.Marca || 'Genérico',
+        precio: String(p.Price || p.Precio || 0),
+        stock: String(p.Quantity || p.Stock || 0),
+        imagen: p.Image || p.Imagen || null,
+        item_id: parseInt(String(p.Id || p.Sku || '0'), 10),
+        raw_data: JSON.stringify(p),
+        updatedAt: new Date()
+      };
+
+      const exists = await prisma.grupoNucleoProduct.findFirst({ where: { codigo } });
+      if(exists) {
+        await prisma.grupoNucleoProduct.update({ where: { id: exists.id }, data });
+        updated++;
+      } else {
+        await prisma.grupoNucleoProduct.create({ data });
+        created++;
+      }
     }
-    return response.data;
+
+    // 4. ACTUALIZAR ESTADÍSTICAS EN BD
+    const stats = JSON.stringify({ total: productos.length, created, updated });
+    await prisma.distributorConfig.update({
+      where: { distributor: 'gruponucleo' },
+      data: { syncStats: stats }
+    });
+
+    return { success: true, stats: { total: productos.length, created, updated } };
+
   } catch (error: any) {
-    const status = error?.response?.status;
-    throw new Error(
-      `Error al obtener catálogo de Grupo Núcleo${
-        status ? `: HTTP ${status}` : ''
-      }`,
-    );
+    console.error('❌ [GrupoNucleo] Error Fatal:', error.message);
+    // Relanzamos el error para que el frontend sepa que falló
+    throw new Error(`Error Grupo Núcleo: ${error.message}`);
   }
 }

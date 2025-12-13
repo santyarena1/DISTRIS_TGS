@@ -78,20 +78,13 @@ model User {
 }
 
 model TgsProduct {
-  id              Int      @id @default(autoincrement())
-  externalId      Int?     // id numérico del feed (ej 6780)
-  name            String   // nombre del producto
-  manufacturerSku String?  // código de fabricante (ej 910-007530)
-  imageUrl        String?  // url de imagen
-  category        String?  // categoría (Mouse, Gabinetes, etc.)
-  status          String?  // 'in_stock' | 'out_of_stock'
-  price           Decimal? // precio en ARS (Prisma acepta number)
-  currency        String?  @default("ARS")
-  internalSku     String?  @unique // IC_910-007530, NB_..., etc.
-  stock           Int?     @default(0)
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id        String   @id @default(uuid())
+  sku       String   @unique
+  nombre    String
+  precio    Float
+  stock     Int
+  imagen    String?
+  updatedAt DateTime @updatedAt
 }
 
 
@@ -132,16 +125,25 @@ model ElitProduct {
 }
 
 
-// Configuración de Distribuidores (Credenciales)
 model DistributorConfig {
   id          Int      @id @default(autoincrement())
-  distributor String   @unique // Ej: 'newbytes', 'gruponucleo', 'elit'
-  name        String   // Nombre visible
+  distributor String   @unique 
+  name        String   
   active      Boolean  @default(true)
-  
-  // Guardaremos las credenciales como un string JSON
-  // Ej: '{"user": "pepe", "pass": "1234"}' o '{"token": "xyz"}'
   credentials String   
   
+  // 👇 ESTOS SON LOS CAMPOS CLAVE
+  lastSync    DateTime? 
+  syncStats   String?   
+
+  updatedAt   DateTime @updatedAt
+}
+
+model GamingCityProduct {
+  id          String   @id @default(uuid())
+  nombre      String
+  precio      Float    // Precio en ARS con IVA (tal cual viene de la web)
+  categoria   String?
+  stock       Int      @default(100) // Asumimos stock si está publicado
   updatedAt   DateTime @updatedAt
 }

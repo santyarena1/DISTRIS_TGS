@@ -5,7 +5,9 @@ import syncRoutes from './syncRoutes';
 import newBytesRoutes from './newBytesRoutes';
 import grupoNucleoRoutes from './grupoNucleoRoutes';
 import searchRoutes from './searchRoutes';
-import configRoutes from './configRoutes'; // <--- Importar
+import configRoutes from './configRoutes';
+import gamingCityRoutes from './gamingCityRoutes'; // <--- IMPORTAR
+import { syncGamingCityHandler } from '../controllers/syncController';
 
 const router = Router();
 
@@ -21,10 +23,13 @@ router.use('/sync', syncRoutes);
 // Listado de productos
 router.use('/newbytes-products', newBytesRoutes);
 router.use('/gruponucleo-products', grupoNucleoRoutes);
+router.use('/gamingcity-products', gamingCityRoutes);
 
 // Búsqueda global de productos
 router.use('/search', searchRoutes);
 
-router.use('/config', configRoutes); // <--- Agregar esta línea
+router.use('/config', configRoutes);
+
+router.post('/sync/gamingcity', syncGamingCityHandler);
 
 export default router;

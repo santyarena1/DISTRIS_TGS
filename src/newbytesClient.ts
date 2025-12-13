@@ -1,57 +1,100 @@
 import axios from 'axios';
 import { parse } from 'csv-parse/sync';
-import * as dotenv from 'dotenv';
+import prisma from './db';
 
-dotenv.config();
-
-/**
- * Fetch the full price list from the New Bytes CSV endpoint.
- *
- * The New Bytes API exposes a CSV file containing the current price list.
- * A valid token must be provided via the NEWBYTES_TOKEN environment variable.
- *
- * @throws Error if the token is not defined or the request fails.
- * @returns A list of objects parsed from the CSV. Each row is represented as
- *          a record keyed by the CSV headers.
- */
-export async function fetchNewBytesProducts(): Promise<Record<string, any>[]> {
-  const token = process.env.NEWBYTES_TOKEN;
-  if (!token) {
-    throw new Error('NEWBYTES_TOKEN is not defined in environment');
-  }
-
-  // Base URL configurable por env, por defecto la oficial de NB.
-  const baseUrl = process.env.NEWBYTES_BASE_URL ?? 'http://api.nb.com.ar';
-  const normalizedBase = baseUrl.replace(/\/+$/, '');
-  const url = `${normalizedBase}/v1/priceListCsv/${encodeURIComponent(token)}`;
+export async function loginAndScrapeNewBytes() {
+  console.log('🔄 Iniciando sincronización de New Bytes...');
 
   try {
-    const response = await axios.get<string>(url, {
-      responseType: 'text',
-      timeout: 30_000,
+    // 1. LEER CREDENCIALES DE BD
+    const config = await prisma.distributorConfig.findUnique({
+      where: { distributor: 'newbytes' }
     });
 
-    // 👇 Acá está el cambio importante: indicamos delimitador ";"
-    // y relajamos un poco las reglas de comillas / columnas.
+    if (!config || !config.active) throw new Error('New Bytes inactivo o no configurado.');
+    
+    const creds = JSON.parse(config.credentials);
+    if (!creds.token) throw new Error('Falta el Token de New Bytes en la configuración.');
+
+    const token = creds.token;
+    const baseUrl = creds.baseUrl || 'http://api.nb.com.ar';
+    const url = `${baseUrl.replace(/\/+$/, '')}/v1/priceListCsv/${encodeURIComponent(token)}`;
+
+    // 2. DESCARGAR CSV
+    console.log('📥 Descargando CSV con Token...');
+    const response = await axios.get(url, { responseType: 'text', timeout: 30000 });
+
+    // 3. PARSEAR
     const records = parse(response.data, {
-      columns: true,          // primera fila = headers
+      columns: true,
       skip_empty_lines: true,
       trim: true,
-      delimiter: ';',         // <--- NB usa ; en lugar de ,
-      bom: true,              // por si viene con BOM al principio
-      relax_quotes: true,     // ignora comillas medio raras
+      delimiter: ';',
+      bom: true,
+      relax_quotes: true,
       relax_column_count: true,
     });
 
-    return records as Record<string, any>[];
-  } catch (error: any) {
-    console.error('New Bytes API error:', {
-      message: error?.message,
-      code: error?.code,
-      status: error?.response?.status,
-    });
+    console.log(`✅ ${records.length} productos leídos del CSV.`);
 
-    const statusInfo = error?.response?.status ? `: HTTP ${error.response.status}` : '';
-    throw new Error(`Failed to fetch New Bytes price list${statusInfo}`);
+    let created = 0;
+    let updated = 0;
+
+    // 4. GUARDAR (Upsert con TODOS tus campos originales)
+    for (const row of records) {
+      const codigo = String(row['CODIGO'] ?? '').trim();
+      if (!codigo) continue;
+
+      const data = {
+        codigo,
+        id_fabricante: row['ID FABRICANTE'] ?? null,
+        categoria: row['CATEGORIA'] ?? null,
+        detalle: row['DETALLE'] ?? null,
+        imagen: row['IMAGEN'] ?? null,
+        iva: row['IVA'] ?? null,
+        stock: row['STOCK'] ?? null,
+        garantia: row['GARANTIA'] ?? null,
+        moneda: row['MONEDA'] ?? null,
+        precio: row['PRECIO'] ?? null,
+        precio_final: row['PRECIO FINAL'] ?? null,
+        cotizacion_dolar: row['COTIZACION DOLAR'] ?? null,
+        precio_pesos_sin_iva: row['PRECIO PESOS SIN IVA'] ?? null,
+        precio_pesos_con_iva: row['PRECIO PESOS CON IVA'] ?? null,
+        atributos: row['ATRIBUTOS'] ?? null,
+        precio_usd_con_utilidad: row['PRECIO USD CON UTILIDAD'] ?? null,
+        precio_pesos_con_utilidad: row['PRECIO PESOS CON UTILIDAD'] ?? null,
+        categoria_usuario: row['CATEGORIA_USUARIO'] ?? null,
+        utilidad: row['UTILIDAD'] ?? null,
+        detalle_usuario: row['DETALLE_USUARIO'] ?? null,
+        peso: row['PESO'] ?? null,
+        alto: row['ALTO'] ?? null,
+        ancho: row['ANCHO'] ?? null,
+        largo: row['LARGO'] ?? null,
+        impuesto_interno: row['IMPUESTO_INTERNO'] ?? null,
+        marca: row['MARCA'] ?? null,
+        raw_data: JSON.stringify(row),
+        updatedAt: new Date() // Actualizamos timestamp
+      };
+
+      const existing = await prisma.newBytesProduct.findFirst({
+        where: { codigo },
+        select: { id: true },
+      });
+
+      if (existing) {
+        await prisma.newBytesProduct.update({ where: { id: existing.id }, data });
+        updated++;
+      } else {
+        await prisma.newBytesProduct.create({ data });
+        created++;
+      }
+    }
+
+    console.log(`💾 New Bytes completado: ${created} creados, ${updated} actualizados.`);
+    return { success: true, count: records.length, created, updated };
+
+  } catch (error: any) {
+    console.error('❌ Error NewBytes:', error.message);
+    throw error;
   }
 }

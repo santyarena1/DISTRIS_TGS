@@ -4,10 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 async function main() {
-  console.log('Sembrando credenciales desde .env...');
+  console.log('Sembrando credenciales...');
 
-  // 1. New Bytes
-  if (process.env.NB_USER && process.env.NB_PASSWORD) {
+  // 1. New Bytes (Desde .env)
+  if (process.env.NEWBYTES_TOKEN) {
     await prisma.distributorConfig.upsert({
       where: { distributor: 'newbytes' },
       update: {},
@@ -15,16 +15,15 @@ async function main() {
         distributor: 'newbytes',
         name: 'New Bytes',
         credentials: JSON.stringify({
-          user: process.env.NB_USER,
-          password: process.env.NB_PASSWORD
+          token: process.env.NEWBYTES_TOKEN // Ojo: Tu .env usa token, no user/pass para NB.
         })
       }
     });
-    console.log('✅ New Bytes migrado.');
+    console.log('✅ New Bytes migrado (Token).');
   }
 
-  // 2. Grupo Nucleo
-  if (process.env.GN_USER && process.env.GN_PASSWORD) {
+  // 2. Grupo Nucleo (Desde .env)
+  if (process.env.NUCLEO_USERNAME && process.env.NUCLEO_PASSWORD) {
     await prisma.distributorConfig.upsert({
       where: { distributor: 'gruponucleo' },
       update: {},
@@ -32,29 +31,30 @@ async function main() {
         distributor: 'gruponucleo',
         name: 'Grupo Nucleo',
         credentials: JSON.stringify({
-          user: process.env.GN_USER,
-          password: process.env.GN_PASSWORD
+          id: process.env.NUCLEO_ID,
+          user: process.env.NUCLEO_USERNAME,
+          password: process.env.NUCLEO_PASSWORD
         })
       }
     });
     console.log('✅ Grupo Nucleo migrado.');
   }
 
-  // 3. Elit
-  if (process.env.ELIT_API_KEY) {
-    await prisma.distributorConfig.upsert({
-      where: { distributor: 'elit' },
-      update: {},
-      create: {
-        distributor: 'elit',
-        name: 'Elit',
-        credentials: JSON.stringify({
-          apiKey: process.env.ELIT_API_KEY
-        })
-      }
-    });
-    console.log('✅ Elit migrado.');
-  }
+  // 3. Elit (Datos que me pasaste recién)
+  // Como no estaban en .env, los ponemos aquí directo para la primera carga
+  await prisma.distributorConfig.upsert({
+    where: { distributor: 'elit' },
+    update: {},
+    create: {
+      distributor: 'elit',
+      name: 'Elit',
+      credentials: JSON.stringify({
+        user_id: "28736",
+        token: "plv92s1l2j"
+      })
+    }
+  });
+  console.log('✅ Elit migrado (Datos manuales).');
 }
 
 main()
